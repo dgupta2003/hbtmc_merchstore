@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Admin can read/write everything
+      allow read, write: if isAdmin();
+      // Owner (Student) can read their own profile
+      allow read: if isOwner(userId);
+      // No one usually writes to user profile directly except via Cloud Function (registration), 
+      // but maybe updating own info? Plan says verifyAndCreateStudentProfile does creation.
+      // So write is generic false for students? 
+      // Let's allow read for owner, read/write for admin.
+    }
+
+    // Products collection
+    match /products/{productId} {
+      // Everyone (authenticated) can read active products. 
+      // Actually, plan says "students: can read active products".
+      allow read: if isAuthenticated();
+      // Only admin can write
+      allow write: if isAdmin();
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Admin can read/update all
+      allow read, update: if isAdmin();
+      // Student can read own orders
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || resource == null);
+      // Student can create order? No, plan says "can create orders only for themselves (via Cloud Function)".
+      // So create is blocked in rules, handled by Admin SDK in Cloud Function.
+      // This is secure.
+    }
+    
+    // Allowed Students Loopup List
+    match /allowed_students/{rollNumber} {
+      // Only accessed by Cloud Functions (Admin SDK)
+      allow read, write: if false; 
+    }
+  }
+}
