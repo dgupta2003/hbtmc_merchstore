@@ -7,13 +7,25 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LoginPage() {
+    const { user, role, loading: authLoading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        if (!authLoading && user) {
+            if (role === 'admin') {
+                router.push('/admin/dashboard');
+            } else if (role === 'student' && user.emailVerified) {
+                router.push('/dashboard');
+            }
+        }
+    }, [user, role, authLoading, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,32 +36,17 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Force token refresh to get latest claims
             const tokenResult = await user.getIdTokenResult(true);
-            const role = tokenResult.claims.role;
+            const claimRole = tokenResult.claims.role;
 
-            if (role === 'admin') {
-                router.push('/admin/dashboard');
-            } else if (role === 'student') {
-                // Check email verification for students
-                if (!user.emailVerified) {
-                    setError('Please verify your email address before logging in. Check your inbox.');
-                    // Optional: send verification email again
-                } else {
-                    router.push('/dashboard');
-                }
-            } else {
-                // Fallback: check Firestore if claim not set yet
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    if (userData.role === 'admin') router.push('/admin/dashboard');
-                    else if (userData.role === 'student') router.push('/dashboard');
-                    else setError('Unknown role. Contact support.');
-                } else {
-                    setError('User profile not found.');
-                }
+            if (claimRole === 'student' && !user.emailVerified) {
+                setError('Please verify your email address before logging in. Check your inbox.');
+                setLoading(false);
+                return;
             }
+            
+            // Note: Do NOT set loading(false) on success!
+            // Wait for the authContext to update and the useEffect above to handle the redirect.
         } catch (err: any) {
             console.error(err);
             if (err.code === 'auth/invalid-credential') {
@@ -57,7 +54,6 @@ export default function LoginPage() {
             } else {
                 setError('Failed to login. Please try again.');
             }
-        } finally {
             setLoading(false);
         }
     };
