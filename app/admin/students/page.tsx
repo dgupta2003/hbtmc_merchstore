@@ -70,7 +70,7 @@ export default function AdminStudentsPage() {
                 }
 
                 try {
-                    const importFn = httpsCallable(functions, 'importAllowedStudentsFromCsv');
+                    const importFn = httpsCallable(functions, 'importAllowedStudents');
                     const res = await importFn({ students: parsedStudents });
                     setUploadResult(res.data as any);
                     setCsvFile(null); // Reset file input
