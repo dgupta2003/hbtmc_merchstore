@@ -110,6 +110,18 @@ export default function Footer() {
                                     @hbtmcofficial
                                 </a>
                             </li>
+                            <li className="flex items-center gap-4 text-[1.1rem]" style={{ color: 'var(--hbt-orange)' }}>
+                                <Instagram size={22} className="flex-shrink-0" style={{ color: 'var(--hbt-orange)' }} />
+                                <a
+                                    href="https://instagram.com/arunodaya_hbtmc"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:opacity-60 transition-opacity"
+                                >
+                                    @arunodaya_hbtmc
+                                </a>
+                            </li>
+
                         </ul>
 
                         <div className="mt-8 pt-8 border-t" style={{ borderColor: 'rgba(255,70,0,0.2)' }}>
@@ -129,9 +141,9 @@ export default function Footer() {
                     <p>&copy; {year} H.B.T. Medical College. All rights reserved.</p>
                     <p className="tracking-widest uppercase text-xs">
                         Made with ❤️ for HBTMC Students by{' '}
-                        <a 
-                            href="https://www.linkedin.com/in/devanshgupta2003/" 
-                            target="_blank" 
+                        <a
+                            href="https://www.linkedin.com/in/devanshgupta2003/"
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="font-bold hover:opacity-70 transition-opacity"
                         >

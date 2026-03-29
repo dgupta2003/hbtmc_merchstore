@@ -60,8 +60,8 @@ export default function AdminStudentsPage() {
                     // Handle variations in CSV headers
                     const rollNumber = row['Roll Number'] || row['ROLL NUMBER'] || row['roll_number'] || row['Roll No'];
                     const name = row['Name'] || row['NAME'] || row['name'];
-                    return { rollNumber: rollNumber?.toString().trim(), name: name?.trim() };
-                }).filter(s => s.rollNumber);
+                    return { roll_number: rollNumber?.toString().trim(), name: name?.trim() };
+                }).filter(s => s.roll_number);
 
                 if (parsedStudents.length === 0) {
                     alert("No valid students found. Ensure headers are 'Roll Number' and 'Name'.");
@@ -91,7 +91,7 @@ export default function AdminStudentsPage() {
     if (loading && !students.length) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-900" /></div>;
 
     return (
-        <div className="space-y-8">
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold font-serif text-blue-900">Registered Students</h1>
             </div>

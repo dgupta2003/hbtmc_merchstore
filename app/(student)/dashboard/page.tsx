@@ -167,26 +167,31 @@ export default function Dashboard() {
                                         )}
 
                                         {/* Multi-field Customizations */}
-                                        {product.customizations && product.customizations.map(field => (
-                                            <div key={field.id} className="pt-2 border-t border-gray-100">
-                                                <div className="flex justify-between items-baseline mb-1">
-                                                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--hbt-muted)' }}>
-                                                        {field.label}
-                                                    </p>
-                                                    {field.maxLength && (
-                                                        <span className="text-[10px] text-gray-400">Max {field.maxLength} chars</span>
-                                                    )}
-                                                </div>
-                                                <input
-                                                    type={field.type === 'number' ? 'number' : 'text'}
-                                                    placeholder={field.desc || `Enter ${field.label}`}
-                                                    maxLength={field.maxLength}
-                                                    value={customTexts[product.id]?.[field.label] || ''}
-                                                    onChange={e => handleCustomTextChange(product.id, field.label, e.target.value)}
-                                                    className="premium-input text-sm"
-                                                />
+                                        {product.customizations && product.customizations.length > 0 && (
+                                            <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
+                                                {product.customizations.map(field => (
+                                                    <div key={field.id} className="pt-2 border-t border-gray-100">
+                                                        <div className="flex justify-between items-baseline mb-1">
+                                                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--hbt-muted)' }}>
+                                                                {field.label}
+                                                            </p>
+                                                            {field.maxLength && (
+                                                                <span className="text-[10px] text-gray-400">Max {field.maxLength} chars</span>
+                                                            )}
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            inputMode={field.type === 'number' ? 'numeric' : 'text'}
+                                                            placeholder={field.desc || `Enter ${field.label}`}
+                                                            maxLength={field.maxLength}
+                                                            value={customTexts[product.id]?.[field.label] || ''}
+                                                            onChange={e => handleCustomTextChange(product.id, field.label, e.target.value)}
+                                                            className="premium-input text-sm"
+                                                        />
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        )}
                                         
                                         {/* Legacy Customization Fallback */}
                                         {(product as any).isCustomizable && !(product.customizations && product.customizations.length > 0) && (

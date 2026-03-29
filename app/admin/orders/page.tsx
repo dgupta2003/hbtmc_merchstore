@@ -72,7 +72,7 @@ export default function AdminOrdersPage() {
     if (loading && !orders.length) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-900" /></div>;
 
     return (
-        <div className="space-y-8">
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h1 className="text-3xl font-bold font-serif text-blue-900">Manage Orders</h1>
                 <button onClick={handleExport} disabled={exporting} className="btn-primary">

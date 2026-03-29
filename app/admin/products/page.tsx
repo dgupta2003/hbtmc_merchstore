@@ -96,7 +96,7 @@ export default function AdminProductsPage() {
     if (loading && !products.length) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-900" /></div>;
 
     return (
-        <div className="space-y-8">
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold font-serif text-blue-900">Products Catalog</h1>
                 <button onClick={() => { setCurrentProduct({ is_featured: false }); setCustomFields([]); setIsEditing(true); }} className="btn-navy">
