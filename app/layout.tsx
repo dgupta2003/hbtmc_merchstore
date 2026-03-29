@@ -1,17 +1,14 @@
 
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Using Inter for modern typography
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
-
+import Footer from "@/components/Footer";
 import { CartProvider } from "@/lib/cart-context";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: "HBT Medical College Merchandise Store",
-  description: "Official merchandise store for HBT Medical College students.",
+  title: "HBTMC GYMKHANA EMPORIUM — H.B.T. Medical College",
+  description: "Official products store for H.B.T. Medical College students. Premium quality apparel and accessories.",
 };
 
 export default function RootLayout({
@@ -21,17 +18,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+      </head>
+      <body>
         <AuthProvider>
           <CartProvider>
-            <div className="min-h-screen flex flex-col bg-gray-50">
+            <div className="min-h-screen flex flex-col" style={{ background: 'var(--hbt-cream)' }}>
               <Navbar />
-              <main className="flex-grow container mx-auto px-4 py-8">
+              <main className="flex-grow">
                 {children}
               </main>
-              <footer className="bg-blue-900 text-white py-4 text-center mt-auto">
-                <p>&copy; {new Date().getFullYear()} HBT Medical College. All rights reserved.</p>
-              </footer>
+              <Footer />
             </div>
           </CartProvider>
         </AuthProvider>

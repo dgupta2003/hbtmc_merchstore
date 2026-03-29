@@ -212,6 +212,123 @@ export const verifyRazorpayPayment = functions.region('asia-south1').https.onCal
 });
 
 /**
+ * Create Guest Razorpay Order (Unauthenticated).
+ * Validates stock, ensures all items are featured, and creates order.
+ */
+export const createGuestRazorpayOrder = functions.region('asia-south1').https.onCall(async (data, context) => {
+    const { items, guestName, guestEmail, guestPhone } = data;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'No items in order.');
+    }
+    if (!guestName || !guestEmail) {
+        throw new functions.https.HttpsError('invalid-argument', 'Guest details (name, email) are required.');
+    }
+
+    let totalAmount = 0;
+    const orderItems = [];
+
+    // Validate items
+    for (const item of items) {
+        const productDoc = await db.collection('products').doc(item.productId).get();
+        if (!productDoc.exists) {
+            throw new functions.https.HttpsError('not-found', `Product ${item.productId} not found.`);
+        }
+        const productData = productDoc.data()!;
+
+        if (!productData.is_active) {
+            throw new functions.https.HttpsError('failed-precondition', `Product ${productData.name} is not active.`);
+        }
+        if (!productData.is_featured) {
+            throw new functions.https.HttpsError('permission-denied', `Product ${productData.name} is not available for guest checkout.`);
+        }
+
+        if (productData.sizes && !productData.sizes.includes(item.size)) {
+            throw new functions.https.HttpsError('invalid-argument', `Size ${item.size} not available for ${productData.name}.`);
+        }
+
+        const price = productData.price_inr;
+        const lineTotal = price * item.quantity;
+        totalAmount += lineTotal;
+
+        orderItems.push({
+            product_id: item.productId,
+            product_name_snapshot: productData.name,
+            size: item.size,
+            quantity: item.quantity,
+            unit_price_snapshot: price,
+            line_total: lineTotal,
+            image_url: productData.image_url || '',
+            customizationTexts: item.customizationTexts || {},
+            customizationText: item.customizationText || '',
+        });
+    }
+
+    const options = {
+        amount: totalAmount * 100,
+        currency: 'INR',
+        receipt: `receipt_${Date.now()}_guest`,
+        notes: { email: guestEmail, name: guestName }
+    };
+
+    try {
+        const order = await razorpay.orders.create(options);
+
+        const orderRef = db.collection('orders').doc();
+        await orderRef.set({
+            user_id: 'guest',
+            guestDetail: { name: guestName, email: guestEmail, phone: guestPhone || '' },
+            items: orderItems,
+            total_amount: totalAmount,
+            payment_provider: 'razorpay',
+            razorpay_order_id: order.id,
+            payment_status: 'created',
+            order_status: 'pending',
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        return {
+            razorpay_order_id: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            key_id: process.env.RAZORPAY_KEY_ID,
+            order_db_id: orderRef.id
+        };
+    } catch (error) {
+        console.error("Razorpay Guest Error:", error);
+        throw new functions.https.HttpsError('internal', 'Failed to create guest Razorpay order.');
+    }
+});
+
+/**
+ * Verify Guest Razorpay Payment.
+ */
+export const verifyGuestRazorpayPayment = functions.region('asia-south1').https.onCall(async (data, context) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_db_id } = data;
+
+    const generated_signature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+        .update(razorpay_order_id + "|" + razorpay_payment_id)
+        .digest('hex');
+
+    if (generated_signature === razorpay_signature) {
+        await db.collection('orders').doc(order_db_id).update({
+            payment_status: 'paid',
+            razorpay_payment_id: razorpay_payment_id,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    } else {
+        await db.collection('orders').doc(order_db_id).update({
+            payment_status: 'failed',
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+        throw new functions.https.HttpsError('invalid-argument', 'Payment verification failed: Signature mismatch.');
+    }
+});
+
+/**
  * Handle CSV import of students (Admin only).
  * Accepts JSON array of {roll_number, name}.
  */
@@ -333,7 +450,34 @@ export const exportOrdersCsv = functions.region('asia-south1').https.onCall(asyn
 
 // Webhook for Razorpay (Optional but Recommended)
 export const razorpayWebhook = functions.region('asia-south1').https.onRequest(async (req, res) => {
-    // Verify signature logic...
-    // Update order status if 'order.paid' event
-    res.json({ received: true });
+    try {
+        const body = req.body;
+        
+        if (body.event === 'payment.captured' || body.event === 'payment.failed') {
+            const paymentEntity = body.payload.payment.entity;
+            const razorpay_order_id = paymentEntity.order_id;
+            const razorpay_payment_id = paymentEntity.id;
+            const status = body.event === 'payment.captured' ? 'paid' : 'failed';
+
+            if (razorpay_order_id) {
+                const ordersRef = db.collection('orders');
+                const q = ordersRef.where('razorpay_order_id', '==', razorpay_order_id);
+                const querySnapshot = await q.get();
+
+                if (!querySnapshot.empty) {
+                    const orderDoc = querySnapshot.docs[0];
+                    await orderDoc.ref.update({
+                        payment_status: status,
+                        razorpay_payment_id: razorpay_payment_id,
+                        updated_at: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log(`Webhook updated order ${orderDoc.id} to ${status}`);
+                }
+            }
+        }
+        res.status(200).json({ received: true });
+    } catch (err: any) {
+        console.error("Webhook processing failed: ", err);
+        res.status(500).send("Webhook Error");
+    }
 });

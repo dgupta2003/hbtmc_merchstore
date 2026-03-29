@@ -31,8 +31,8 @@ service cloud.firestore {
     // Products collection
     match /products/{productId} {
       // Everyone (authenticated) can read active products. 
-      // Actually, plan says "students: can read active products".
-      allow read: if isAuthenticated();
+      // Everyone can read products (for guest checkout functionality)
+      allow read: if true;
       // Only admin can write
       allow write: if isAdmin();
     }
