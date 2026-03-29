@@ -127,7 +127,17 @@ export default function Footer() {
                     style={{ borderTop: '1px solid rgba(255,70,0,0.2)', color: 'var(--hbt-orange)' }}
                 >
                     <p>&copy; {year} H.B.T. Medical College. All rights reserved.</p>
-                    <p className="tracking-widest uppercase text-xs">Made with ❤️ for HBTMC Students.</p>
+                    <p className="tracking-widest uppercase text-xs">
+                        Made with ❤️ for HBTMC Students by{' '}
+                        <a 
+                            href="https://www.linkedin.com/in/devanshgupta2003/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="font-bold hover:opacity-70 transition-opacity"
+                        >
+                            Gupta Ji
+                        </a>.
+                    </p>
                 </div>
             </div>
         </footer>
