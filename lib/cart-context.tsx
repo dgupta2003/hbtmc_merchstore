@@ -19,6 +19,7 @@ export interface Product {
     is_active: boolean;
     customizations?: CustomizationField[];
     is_featured?: boolean;
+    category?: 'merchandise' | 'ticket' | 'other';
 }
 
 export interface CartItem extends Product {

@@ -120,7 +120,7 @@ exports.createRazorpayOrder = functions.region('asia-south1').https.onCall(async
             throw new functions.https.HttpsError('failed-precondition', `Product ${productData.name} is not active.`);
         }
         // Check size if applicable
-        if (productData.sizes && !productData.sizes.includes(item.size)) {
+        if (productData.sizes && productData.sizes.length > 0 && !productData.sizes.includes(item.size)) {
             throw new functions.https.HttpsError('invalid-argument', `Size ${item.size} not available for ${productData.name}.`);
         }
         const price = productData.price_inr;
@@ -129,6 +129,7 @@ exports.createRazorpayOrder = functions.region('asia-south1').https.onCall(async
         orderItems.push({
             product_id: item.productId,
             product_name_snapshot: productData.name,
+            category_snapshot: productData.category || 'merchandise',
             size: item.size,
             quantity: item.quantity,
             unit_price_snapshot: price,
@@ -232,7 +233,7 @@ exports.createGuestRazorpayOrder = functions.region('asia-south1').https.onCall(
         if (!productData.is_featured) {
             throw new functions.https.HttpsError('permission-denied', `Product ${productData.name} is not available for guest checkout.`);
         }
-        if (productData.sizes && !productData.sizes.includes(item.size)) {
+        if (productData.sizes && productData.sizes.length > 0 && !productData.sizes.includes(item.size)) {
             throw new functions.https.HttpsError('invalid-argument', `Size ${item.size} not available for ${productData.name}.`);
         }
         const price = productData.price_inr;
@@ -241,6 +242,7 @@ exports.createGuestRazorpayOrder = functions.region('asia-south1').https.onCall(
         orderItems.push({
             product_id: item.productId,
             product_name_snapshot: productData.name,
+            category_snapshot: productData.category || 'merchandise',
             size: item.size,
             quantity: item.quantity,
             unit_price_snapshot: price,
@@ -366,36 +368,34 @@ exports.deleteStudentAccount = functions.region('asia-south1').https.onCall(asyn
  * Returns a CSV string.
  */
 exports.exportOrdersCsv = functions.region('asia-south1').https.onCall(async (data, context) => {
-    var _a;
+    var _a, _b;
     if (!context.auth || context.auth.token.role !== 'admin') {
         throw new functions.https.HttpsError('permission-denied', 'Admin access required.');
     }
-    const { status } = data;
+    const { status, exportCategory } = data;
     let query = db.collection('orders').orderBy('created_at', 'desc');
-    if (status) {
+    if (status && status !== 'all') {
         query = query.where('order_status', '==', status);
     }
-    // Date filtering would require converting JS dates to Firestore timestamps
-    // Simplified for now to just fetch recent or all.
     const snapshot = await query.get();
-    const lines = ['Order ID,Date,Roll Number,Student Name,Product,Size,Quantity,Line Total,Order Status,Payment Status'];
-    // Optimization: fetch all users referenced to get names if not stored in order?
-    // User request: "student_name (if captured)". We verify name at register, so it's in users collection.
-    // Order has user_roll_number. We should probably fetch user name. 
-    // For large exports, this N+1 is bad. 
-    // Ideally we store snapshot of student name in order, but schema didn't enforce it.
-    // We'll try to fetch user docs or just skip name if not easy.
-    // Wait, requirement: "CSV columns must include... student_name (if captured)".
+    const lines = ['Order ID,Date,Roll Number,Student/Guest Email,Category,Product,Size,Quantity,Line Total,Order Status,Payment Status'];
     for (const doc of snapshot.docs) {
         const order = doc.data();
         const date = ((_a = order.created_at) === null || _a === void 0 ? void 0 : _a.toDate().toISOString()) || '';
         // Flatten items
         for (const item of order.items) {
+            const itemCat = item.category_snapshot || 'merchandise';
+            if (exportCategory && exportCategory !== 'all' && itemCat !== exportCategory) {
+                continue;
+            }
+            const identity = order.user_id === 'guest' ? 'GUEST' : (order.user_roll_number || 'N/A');
+            const userContact = order.user_id === 'guest' ? (((_b = order.guestDetail) === null || _b === void 0 ? void 0 : _b.email) || 'N/A') : (order.user_email || 'N/A');
             const line = [
                 doc.id,
                 date,
-                order.user_roll_number,
-                'Fetching...',
+                identity,
+                userContact,
+                itemCat,
                 item.product_name_snapshot,
                 item.size,
                 item.quantity,

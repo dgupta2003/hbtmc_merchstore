@@ -12,6 +12,7 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+    const [exportCategory, setExportCategory] = useState('all');
     const [activeTab, setActiveTab] = useState('all');
 
     const fetchOrders = async () => {
@@ -50,7 +51,7 @@ export default function AdminOrdersPage() {
         setExporting(true);
         try {
             const exportFn = httpsCallable(functions, 'exportOrdersCsv');
-            const result = await exportFn({});
+            const result = await exportFn({ exportCategory });
             const csvContent = (result.data as any).csv;
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
@@ -75,9 +76,16 @@ export default function AdminOrdersPage() {
         <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h1 className="text-3xl font-bold font-serif text-blue-900">Manage Orders</h1>
-                <button onClick={handleExport} disabled={exporting} className="btn-primary">
-                    {exporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />} Export CSV
-                </button>
+                <div className="flex items-center gap-2">
+                    <select className="premium-input bg-white py-[9px] text-sm w-48" value={exportCategory} onChange={e => setExportCategory(e.target.value)}>
+                        <option value="all">All Items</option>
+                        <option value="merchandise">Merchandise Only</option>
+                        <option value="ticket">Tickets/Passes Only</option>
+                    </select>
+                    <button onClick={handleExport} disabled={exporting} className="btn-primary">
+                        {exporting ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />} Export CSV
+                    </button>
+                </div>
             </div>
 
             {/* Filter Tabs */}
@@ -135,7 +143,7 @@ export default function AdminOrdersPage() {
                                     <td className="px-6 py-4">
                                         {order.items.map((i: any, idx: number) => (
                                             <div key={idx} className="mb-2 text-xs text-gray-700">
-                                                <span className="font-semibold">{i.quantity}x</span> {i.product_name_snapshot} ({i.size})
+                                                <span className="font-semibold">{i.quantity}x</span> {i.product_name_snapshot} <span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded ml-1">{i.category_snapshot || 'merchandise'}</span> {i.size && i.size !== 'N/A' && `(${i.size})`}
                                                 
                                                 {/* Legacy Custom Field */}
                                                 {i.customizationText && typeof i.customizationText === 'string' && (

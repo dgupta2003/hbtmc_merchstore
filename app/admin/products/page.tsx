@@ -49,6 +49,7 @@ export default function AdminProductsPage() {
                 name: currentProduct.name,
                 description: currentProduct.description || '',
                 price_inr: Number(currentProduct.price_inr),
+                category: currentProduct.category || 'merchandise',
                 sizes: typeof currentProduct.sizes === 'string' ? (currentProduct.sizes as string).split(',').map((s: string) => s.trim()).filter((s: string) => s) : currentProduct.sizes || [],
                 image_url: imageUrl,
                 is_active: currentProduct.is_active ?? true,
@@ -117,7 +118,15 @@ export default function AdminProductsPage() {
                                 <label className="block text-sm font-semibold mb-1 text-gray-700">Description</label>
                                 <textarea className="premium-input min-h-[100px]" value={currentProduct.description || ''} onChange={e => setCurrentProduct({ ...currentProduct, description: e.target.value })} />
                             </div>
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1 text-gray-700">Category</label>
+                                    <select className="premium-input bg-white" value={currentProduct.category || 'merchandise'} onChange={e => setCurrentProduct({ ...currentProduct, category: e.target.value as any })}>
+                                        <option value="merchandise">Merchandise</option>
+                                        <option value="ticket">Ticket / Pass</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-semibold mb-1 text-gray-700">Price (INR)</label>
                                     <input type="number" className="premium-input" value={currentProduct.price_inr || ''} onChange={e => setCurrentProduct({ ...currentProduct, price_inr: Number(e.target.value) })} required />
@@ -219,6 +228,7 @@ export default function AdminProductsPage() {
                             </div>
                         </div>
                         <div className="p-4 flex-grow flex flex-col">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{product.category || 'merchandise'}</span>
                             <h3 className="font-bold text-gray-900 line-clamp-1">{product.name}</h3>
                             <p className="text-orange-500 font-bold mb-4">₹{product.price_inr}</p>
                             
