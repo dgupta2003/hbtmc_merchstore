@@ -22,6 +22,7 @@ export async function sendOrderConfirmation(
         return;
     }
     try {
+        // Notify user
         await emailjs.send(
             SERVICE_ID,
             ORDER_TEMPLATE,
@@ -35,7 +36,21 @@ export async function sendOrderConfirmation(
             },
             PUBLIC_KEY
         );
-        console.log('Order confirmation email sent.');
+        // Notify admin
+        await emailjs.send(
+            SERVICE_ID,
+            ORDER_TEMPLATE,
+            {
+                to_email: ADMIN_EMAIL,
+                to_name: 'Admin',
+                order_id: orderId,
+                total_amount: `₹${totalAmount}`,
+                pickup_message:
+                    'Collect your order from Male Common Room, 1st Floor, Main College Building after receiving intimation. Usual processing is 7–10 business days.',
+            },
+            PUBLIC_KEY
+        );
+        console.log('Order confirmation emails sent.');
     } catch (err) {
         console.error('Failed to send order confirmation email:', err);
     }
@@ -51,6 +66,7 @@ export async function sendPickupNotification(
         return;
     }
     try {
+        // Notify user
         await emailjs.send(
             SERVICE_ID,
             PICKUP_TEMPLATE,
@@ -62,7 +78,19 @@ export async function sendPickupNotification(
             },
             PUBLIC_KEY
         );
-        console.log('Pickup notification sent.');
+        // Notify admin
+        await emailjs.send(
+            SERVICE_ID,
+            PICKUP_TEMPLATE,
+            {
+                to_email: ADMIN_EMAIL,
+                to_name: 'Admin',
+                order_id: orderId,
+                pickup_location: 'Male Common Room, 1st Floor, Main College Building',
+            },
+            PUBLIC_KEY
+        );
+        console.log('Pickup notifications sent.');
     } catch (err) {
         console.error('Failed to send pickup notification:', err);
     }
