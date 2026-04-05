@@ -58,10 +58,9 @@ export default function AdminProductsPage() {
                 updated_at: new Date(),
             };
 
-            // clean up legacy boolean if exists
-            (productData as any).isCustomizable = deleteField();
-
             if (currentProduct.id) {
+                // clean up legacy boolean if exists
+                (productData as any).isCustomizable = deleteField();
                 await updateDoc(doc(db, 'products', currentProduct.id), productData);
             } else {
                 await addDoc(collection(db, 'products'), { ...productData, created_at: new Date() });
@@ -131,10 +130,12 @@ export default function AdminProductsPage() {
                                     <label className="block text-sm font-semibold mb-1 text-gray-700">Price (INR)</label>
                                     <input type="number" className="premium-input" value={currentProduct.price_inr || ''} onChange={e => setCurrentProduct({ ...currentProduct, price_inr: Number(e.target.value) })} required />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold mb-1 text-gray-700">Sizes (csv)</label>
-                                    <input className="premium-input" value={Array.isArray(currentProduct.sizes) ? currentProduct.sizes.join(', ') : currentProduct.sizes || ''} onChange={e => setCurrentProduct({ ...currentProduct, sizes: e.target.value as any })} placeholder="S, M, L" />
-                                </div>
+                                {currentProduct.category !== 'ticket' && (
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1 text-gray-700">Sizes (csv)</label>
+                                        <input className="premium-input" value={Array.isArray(currentProduct.sizes) ? currentProduct.sizes.join(', ') : currentProduct.sizes || ''} onChange={e => setCurrentProduct({ ...currentProduct, sizes: e.target.value as any })} placeholder="S, M, L" />
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">

@@ -15,7 +15,8 @@ export async function sendOrderConfirmation(
     userEmail: string,
     userName: string,
     orderId: string,
-    totalAmount: number
+    totalAmount: number,
+    orderDetailsStr: string = ''
 ) {
     if (!emailsConfigured()) {
         console.log('EmailJS not configured — skipping order confirmation email.');
@@ -32,7 +33,8 @@ export async function sendOrderConfirmation(
                 order_id: orderId,
                 total_amount: `₹${totalAmount}`,
                 pickup_message:
-                    'Collect your order from Male Common Room, 1st Floor, Main College Building after receiving intimation. Usual processing is 7–10 business days.',
+                    'Collect your physical items from Male Common Room, 1st Floor, Main College Building. If this is a digital pass/ticket, please present this email as confirmation.',
+                order_details: orderDetailsStr,
             },
             PUBLIC_KEY
         );
@@ -46,7 +48,8 @@ export async function sendOrderConfirmation(
                 order_id: orderId,
                 total_amount: `₹${totalAmount}`,
                 pickup_message:
-                    'Collect your order from Male Common Room, 1st Floor, Main College Building after receiving intimation. Usual processing is 7–10 business days.',
+                    'Collect your physical items from Male Common Room, 1st Floor, Main College Building. If this is a digital pass/ticket, please present this email as confirmation.',
+                order_details: orderDetailsStr,
             },
             PUBLIC_KEY
         );

@@ -93,6 +93,20 @@ export default function CartPage() {
                             order_db_id,
                         });
 
+                        // Compose order summary string for email
+                        const orderSummaryStr = cart.map((item) => {
+                            let str = `${item.quantity}x ${item.name}`;
+                            if (item.category !== 'ticket' && item.selectedSize && item.selectedSize !== 'N/A') {
+                                str += ` (Size: ${item.selectedSize})`;
+                            }
+                            if (item.customizationTexts) {
+                                str += ` - [${Object.entries(item.customizationTexts).map(([k,v])=> `${k}: ${v}`).join(', ')}]`;
+                            } else if (item.customizationText) {
+                                str += ` - [Custom: ${item.customizationText}]`;
+                            }
+                            return str;
+                        }).join('\n');
+
                         // Send email confirmation
                         const emailTarget = user ? user.email : guestEmail;
                         const nameTarget = user ? user.displayName || 'Student' : guestName;
@@ -101,7 +115,8 @@ export default function CartPage() {
                                 emailTarget,
                                 nameTarget,
                                 order_db_id,
-                                cartTotal
+                                cartTotal,
+                                orderSummaryStr
                             );
                         }
 
