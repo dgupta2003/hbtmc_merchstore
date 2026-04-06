@@ -105,6 +105,11 @@ export async function sendCompletionNotification(
     orderId: string,
     totalAmount: number
 ) {
+    // Disabled due to EmailJS free tier 2-template limit
+    console.log('EmailJS completion template muted to preserve quota — skipping.');
+    return;
+    
+    /* 
     if (!emailsConfigured() || !COMPLETE_TEMPLATE) {
         console.log('EmailJS completion template not configured — skipping.');
         return;
@@ -122,20 +127,9 @@ export async function sendCompletionNotification(
             },
             PUBLIC_KEY
         );
-        // Notify admin
-        await emailjs.send(
-            SERVICE_ID,
-            COMPLETE_TEMPLATE,
-            {
-                to_email: ADMIN_EMAIL,
-                to_name: 'Admin',
-                order_id: orderId,
-                total_amount: `₹${totalAmount}`,
-            },
-            PUBLIC_KEY
-        );
-        console.log('Completion notifications sent.');
+        // ... (admin cc hidden)
     } catch (err) {
-        console.error('Failed to send completion notification:', err);
+        console.error(err);
     }
+    */
 }
