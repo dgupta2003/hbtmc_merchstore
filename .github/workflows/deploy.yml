@@ -1,0 +1,96 @@
+name: Deploy to Firebase
+
+# Continuous deployment: every push to main builds the static frontend and the
+# Cloud Functions, then deploys both to the live Firebase project.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   FIREBASE_SERVICE_ACCOUNT  JSON key for a deploy service account. Required IAM
+#                             roles (gen-1 functions need all of these):
+#                               - Firebase Develop Admin (roles/firebase.developAdmin)
+#                               - Service Account User  (roles/iam.serviceAccountUser)  <- mandatory, else functions deploy 403s
+#                               - Artifact Registry Writer (roles/artifactregistry.writer) <- firebase-tools uploads fn source via AR
+#   ENV_LOCAL                 Full contents of .env.local (the NEXT_PUBLIC_* build vars).
+#   FUNCTIONS_ENV             Full contents of functions/.env (RAZORPAY_KEY_ID / _SECRET).
+#
+# Until FIREBASE_SERVICE_ACCOUNT is set, the job no-ops (green) via the guard step.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Never run two production deploys at once.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy (hosting + functions)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deploy secrets
+        id: check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT not configured — skipping deploy. Add the FIREBASE_SERVICE_ACCOUNT, ENV_LOCAL and FUNCTIONS_ENV secrets to enable continuous deployment."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Write frontend env (.env.local)
+        if: steps.check.outputs.ready == 'true'
+        env:
+          ENV_LOCAL: ${{ secrets.ENV_LOCAL }}
+        run: printf '%s' "$ENV_LOCAL" > .env.local
+
+      - name: Install & build frontend (static export -> out/)
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install functions dependencies
+        if: steps.check.outputs.ready == 'true'
+        run: npm --prefix functions ci
+
+      - name: Write functions env (functions/.env)
+        if: steps.check.outputs.ready == 'true'
+        env:
+          FUNCTIONS_ENV: ${{ secrets.FUNCTIONS_ENV }}
+        run: printf '%s' "$FUNCTIONS_ENV" > functions/.env
+
+      - name: Write service account credentials
+        if: steps.check.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/service-account.json"
+
+      - name: Deploy hosting + functions
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+        run: >-
+          npx firebase-tools@latest deploy
+          --only hosting,functions
+          --project hbtmc-merch-store
+          --non-interactive
