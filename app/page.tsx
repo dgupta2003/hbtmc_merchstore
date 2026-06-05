@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { Product } from "@/lib/cart-context";
 import { ArrowRight, ShoppingBag, Star, Sparkles } from "lucide-react";
 
@@ -127,42 +127,44 @@ function SpotlightSection({ products }: { products: Product[] }) {
                                             </div>
                                         )}
 
-                                        {product.customizations && product.customizations.map(field => (
-                                            <div key={field.id} className="pt-2 border-t border-gray-100">
-                                                <div className="flex justify-between items-baseline mb-1">
-                                                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--hbt-muted)' }}>
-                                                        {field.label}
-                                                    </p>
-                                                    {field.maxLength && (
-                                                        <span className="text-[10px] text-gray-400">Max {field.maxLength} chars</span>
-                                                    )}
+                                        <div className="max-h-44 overflow-y-auto pr-2 space-y-4">
+                                            {product.customizations && product.customizations.map(field => (
+                                                <div key={field.id} className="pt-2 border-t border-gray-100">
+                                                    <div className="flex justify-between items-baseline mb-1">
+                                                        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--hbt-muted)' }}>
+                                                            {field.label}
+                                                        </p>
+                                                        {field.maxLength && (
+                                                            <span className="text-[10px] text-gray-400">Max {field.maxLength} chars</span>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type={field.type === 'number' ? 'number' : 'text'}
+                                                        placeholder={field.desc || `Enter ${field.label}`}
+                                                        maxLength={field.maxLength}
+                                                        value={customTexts[product.id]?.[field.label] || ''}
+                                                        onChange={e => handleCustomTextChange(product.id, field.label, e.target.value)}
+                                                        className="premium-input text-sm"
+                                                    />
                                                 </div>
-                                                <input
-                                                    type={field.type === 'number' ? 'number' : 'text'}
-                                                    placeholder={field.desc || `Enter ${field.label}`}
-                                                    maxLength={field.maxLength}
-                                                    value={customTexts[product.id]?.[field.label] || ''}
-                                                    onChange={e => handleCustomTextChange(product.id, field.label, e.target.value)}
-                                                    className="premium-input text-sm"
-                                                />
-                                            </div>
-                                        ))}
+                                            ))}
 
-                                        {(product as any).isCustomizable && !(product.customizations && product.customizations.length > 0) && (
-                                            <div className="pt-2 border-t border-gray-100">
-                                                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--hbt-muted)' }}>
-                                                    Customization
-                                                </p>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Enter your name/text (max 25 chars)"
-                                                    maxLength={25}
-                                                    value={customTexts[product.id]?.['Text'] || ''}
-                                                    onChange={e => handleCustomTextChange(product.id, 'Text', e.target.value)}
-                                                    className="premium-input text-sm"
-                                                />
-                                            </div>
-                                        )}
+                                            {(product as any).isCustomizable && !(product.customizations && product.customizations.length > 0) && (
+                                                <div className="pt-2 border-t border-gray-100">
+                                                    <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--hbt-muted)' }}>
+                                                        Customization
+                                                    </p>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Enter your name/text (max 25 chars)"
+                                                        maxLength={25}
+                                                        value={customTexts[product.id]?.['Text'] || ''}
+                                                        onChange={e => handleCustomTextChange(product.id, 'Text', e.target.value)}
+                                                        className="premium-input text-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
 
                                         <button
                                             onClick={() => handleAddToCart(product)}
@@ -199,8 +201,7 @@ export default function Home() {
                 const q = query(
                     collection(db, 'products'),
                     where('is_active', '==', true),
-                    where('is_featured', '==', true),
-                    limit(3)
+                    where('is_featured', '==', true)
                 );
                 const snap = await getDocs(q);
                 const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));

@@ -123,9 +123,14 @@ export default function AdminStudentsPage() {
                     </div>
 
                     {uploadResult && (
-                        <div className="mt-4 p-3 rounded-lg border bg-gray-50 text-sm flex gap-6">
-                            <span className="flex items-center gap-1.5 text-emerald-700"><CheckCircle size={16}/> Imported: <b>{uploadResult.imported}</b></span>
-                            <span className="flex items-center gap-1.5 text-amber-600"><AlertTriangle size={16}/> Skipped/Failed: <b>{uploadResult.failed}</b></span>
+                        <div className="mt-4 p-3 rounded-lg border bg-gray-50 text-sm space-y-2">
+                            <div className="flex gap-6">
+                                <span className="flex items-center gap-1.5 text-emerald-700"><CheckCircle size={16}/> Added to allowlist: <b>{uploadResult.imported}</b></span>
+                                <span className="flex items-center gap-1.5 text-amber-600"><AlertTriangle size={16}/> Skipped (no roll number): <b>{uploadResult.failed}</b></span>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                These roll numbers are now eligible to register. They are added to the registration allowlist and will <b>not</b> appear in the table below, which lists students who have already registered.
+                            </p>
                         </div>
                     )}
                 </div>

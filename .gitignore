@@ -43,3 +43,9 @@ next-env.d.ts
 # firebase
 .firebase/
 service-account.json
+
+# claude context log (local-only running record)
+.context.md
+
+# claude workflow scaffolding (local-only)
+.claude/

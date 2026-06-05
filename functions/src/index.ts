@@ -347,19 +347,23 @@ export const importAllowedStudents = functions.region('asia-south1').https.onCal
     const batchSize = 500;
     let batch = db.batch();
     let count = 0;
-    let total = 0;
+    let imported = 0;
+    let failed = 0;
 
     for (const student of students) {
-        if (!student.roll_number) continue;
+        if (!student.roll_number) {
+            failed++;
+            continue;
+        }
 
         const ref = db.collection('allowed_students').doc(String(student.roll_number));
         batch.set(ref, {
             roll_number: String(student.roll_number),
             raw_name: student.name || '',
-            name_normalized: student.name ? student.name.trim().toLowerCase() : '',
+            name_normalized: student.name ? student.name.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase() : '',
         });
         count++;
-        total++;
+        imported++;
 
         if (count >= batchSize) {
             await batch.commit();
@@ -372,7 +376,7 @@ export const importAllowedStudents = functions.region('asia-south1').https.onCal
         await batch.commit();
     }
 
-    return { success: true, count: total };
+    return { success: true, imported, failed, count: imported };
 });
 
 /**
