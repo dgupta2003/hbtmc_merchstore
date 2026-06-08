@@ -26,11 +26,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.razorpayWebhook = exports.exportOrdersCsv = exports.deleteStudentAccount = exports.importAllowedStudents = exports.verifyGuestRazorpayPayment = exports.createGuestRazorpayOrder = exports.verifyRazorpayPayment = exports.createRazorpayOrder = exports.verifyAndCreateStudentProfile = void 0;
+exports.announceProduct = exports.onOrderUpdate = exports.razorpayWebhook = exports.exportOrdersCsv = exports.deleteStudentAccount = exports.importAllowedStudents = exports.verifyGuestRazorpayPayment = exports.createGuestRazorpayOrder = exports.verifyRazorpayPayment = exports.createRazorpayOrder = exports.verifyAndCreateStudentProfile = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto = __importStar(require("crypto"));
+const email_1 = require("./email");
 // Re-deploy trigger to pick up new .env variables
 admin.initializeApp();
 const db = admin.firestore();
@@ -154,6 +155,8 @@ exports.createRazorpayOrder = functions.region('asia-south1').https.onCall(async
         await orderRef.set({
             user_id: uid,
             user_roll_number: userData.roll_number,
+            user_email: context.auth.token.email,
+            user_name: userData.name,
             items: orderItems,
             total_amount: totalAmount,
             payment_provider: 'razorpay',
@@ -441,5 +444,92 @@ exports.razorpayWebhook = functions.region('asia-south1').https.onRequest(async 
         console.error("Webhook processing failed: ", err);
         res.status(500).send("Webhook Error");
     }
+});
+/**
+ * Order email trigger.
+ * Fires on any orders/{id} update — covers the client verify path, the webhook,
+ * and admin status changes uniformly. Transition guards + sent-flag checks make
+ * it idempotent (the stamp .update() itself re-fires this trigger, but the guards
+ * prevent re-sends).
+ */
+exports.onOrderUpdate = functions.region('asia-south1').firestore.document('orders/{orderId}').onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after)
+        return;
+    // Provide the doc id to the email helpers.
+    const order = Object.assign(Object.assign({}, after), { id: context.params.orderId });
+    // Order confirmation: payment just became paid.
+    if (before.payment_status !== 'paid' &&
+        after.payment_status === 'paid' &&
+        !after.email_confirmation_sent_at) {
+        const sent = await (0, email_1.sendOrderConfirmation)(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_confirmation_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    // Ready for pickup.
+    if (before.order_status !== 'ready_for_pickup' &&
+        after.order_status === 'ready_for_pickup' &&
+        !after.email_pickup_sent_at) {
+        const sent = await (0, email_1.sendPickupNotification)(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_pickup_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    // Completed.
+    if (before.order_status !== 'completed' &&
+        after.order_status === 'completed' &&
+        !after.email_completed_sent_at) {
+        const sent = await (0, email_1.sendCompletionNotification)(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_completed_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+});
+/**
+ * Announce a new product to all authenticated users (Admin only).
+ */
+exports.announceProduct = functions.region('asia-south1').https.onCall(async (data, context) => {
+    if (!context.auth || context.auth.token.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Admin access required.');
+    }
+    const { productId } = data;
+    if (!productId) {
+        throw new functions.https.HttpsError('invalid-argument', 'productId is required.');
+    }
+    const productDoc = await db.collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Product not found.');
+    }
+    const product = productDoc.data();
+    if (!product.is_active) {
+        throw new functions.https.HttpsError('failed-precondition', 'Product is not active.');
+    }
+    // Collect deduped, non-empty emails from all users.
+    const usersSnapshot = await db.collection('users').get();
+    const emailSet = new Set();
+    for (const userDoc of usersSnapshot.docs) {
+        const email = userDoc.data().email;
+        if (email && typeof email === 'string') {
+            emailSet.add(email);
+        }
+    }
+    const emails = Array.from(emailSet);
+    const sent = await (0, email_1.sendProductAnnouncement)(Object.assign(Object.assign({}, product), { id: productId }), emails);
+    if (!sent) {
+        // Email is non-fatal: don't throw. Leave the product un-announced so the admin can retry.
+        return { success: false, recipients: emails.length, skipped: true };
+    }
+    await productDoc.ref.update({
+        announced_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success: sent, recipients: emails.length };
 });
 //# sourceMappingURL=index.js.map

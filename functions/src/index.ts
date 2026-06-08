@@ -3,6 +3,12 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
+import {
+    sendOrderConfirmation,
+    sendPickupNotification,
+    sendCompletionNotification,
+    sendProductAnnouncement,
+} from './email';
 
 // Re-deploy trigger to pick up new .env variables
 
@@ -155,6 +161,8 @@ export const createRazorpayOrder = functions.region('asia-south1').https.onCall(
         await orderRef.set({
             user_id: uid,
             user_roll_number: userData.roll_number,
+            user_email: context.auth.token.email,
+            user_name: userData.name,
             items: orderItems,
             total_amount: totalAmount,
             payment_provider: 'razorpay',
@@ -485,4 +493,109 @@ export const razorpayWebhook = functions.region('asia-south1').https.onRequest(a
         console.error("Webhook processing failed: ", err);
         res.status(500).send("Webhook Error");
     }
+});
+
+/**
+ * Order email trigger.
+ * Fires on any orders/{id} update — covers the client verify path, the webhook,
+ * and admin status changes uniformly. Transition guards + sent-flag checks make
+ * it idempotent (the stamp .update() itself re-fires this trigger, but the guards
+ * prevent re-sends).
+ */
+export const onOrderUpdate = functions.region('asia-south1').firestore.document('orders/{orderId}').onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after) return;
+
+    // Provide the doc id to the email helpers.
+    const order = { ...after, id: context.params.orderId };
+
+    // Order confirmation: payment just became paid.
+    if (
+        before.payment_status !== 'paid' &&
+        after.payment_status === 'paid' &&
+        !after.email_confirmation_sent_at
+    ) {
+        const sent = await sendOrderConfirmation(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_confirmation_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+
+    // Ready for pickup.
+    if (
+        before.order_status !== 'ready_for_pickup' &&
+        after.order_status === 'ready_for_pickup' &&
+        !after.email_pickup_sent_at
+    ) {
+        const sent = await sendPickupNotification(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_pickup_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+
+    // Completed.
+    if (
+        before.order_status !== 'completed' &&
+        after.order_status === 'completed' &&
+        !after.email_completed_sent_at
+    ) {
+        const sent = await sendCompletionNotification(order);
+        if (sent) {
+            await change.after.ref.update({
+                email_completed_sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+});
+
+/**
+ * Announce a new product to all authenticated users (Admin only).
+ */
+export const announceProduct = functions.region('asia-south1').https.onCall(async (data, context) => {
+    if (!context.auth || context.auth.token.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Admin access required.');
+    }
+
+    const { productId } = data;
+    if (!productId) {
+        throw new functions.https.HttpsError('invalid-argument', 'productId is required.');
+    }
+
+    const productDoc = await db.collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Product not found.');
+    }
+    const product = productDoc.data()!;
+    if (!product.is_active) {
+        throw new functions.https.HttpsError('failed-precondition', 'Product is not active.');
+    }
+
+    // Collect deduped, non-empty emails from all users.
+    const usersSnapshot = await db.collection('users').get();
+    const emailSet = new Set<string>();
+    for (const userDoc of usersSnapshot.docs) {
+        const email = userDoc.data().email;
+        if (email && typeof email === 'string') {
+            emailSet.add(email);
+        }
+    }
+    const emails = Array.from(emailSet);
+
+    const sent = await sendProductAnnouncement({ ...product, id: productId }, emails);
+
+    if (!sent) {
+        // Email is non-fatal: don't throw. Leave the product un-announced so the admin can retry.
+        return { success: false, recipients: emails.length, skipped: true };
+    }
+
+    await productDoc.ref.update({
+        announced_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: sent, recipients: emails.length };
 });

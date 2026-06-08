@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, functions } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDocs, orderBy, query, deleteField } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/lib/auth-context';
 import { Product, CustomizationField } from '@/lib/cart-context';
 import Image from 'next/image';
-import { Loader2, Plus, Edit, Pencil, Star, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Edit, Pencil, Star, Trash2, Megaphone, CheckCircle } from 'lucide-react';
 
 export default function AdminProductsPage() {
     const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function AdminProductsPage() {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [customFields, setCustomFields] = useState<CustomizationField[]>([]);
+    const [announcingId, setAnnouncingId] = useState<string | null>(null);
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -91,6 +93,34 @@ export default function AdminProductsPage() {
 
     const removeCustomField = (index: number) => {
         setCustomFields(customFields.filter((_, i) => i !== index));
+    };
+
+    const handleAnnounce = async (product: Product) => {
+        if (!product.is_active) {
+            alert('Product must be active to announce.');
+            return;
+        }
+        if (!window.confirm(`Send a new-product announcement email for "${product.name}" to all registered students?`)) {
+            return;
+        }
+        setAnnouncingId(product.id);
+        try {
+            const announceFn = httpsCallable(functions, 'announceProduct');
+            const result = await announceFn({ productId: product.id });
+            const data = result.data as any;
+            const recipients = data?.recipients ?? 0;
+            if (data?.success) {
+                alert(`Announcement sent to ${recipients} student(s).`);
+            } else {
+                alert('Announcement could not be sent (email not configured or failed). Please try again.');
+            }
+            fetchProducts();
+        } catch (error: any) {
+            console.error('Announce failed', error);
+            alert(error?.message || 'Failed to send announcement.');
+        } finally {
+            setAnnouncingId(null);
+        }
     };
 
     if (loading && !products.length) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-900" /></div>;
@@ -247,6 +277,20 @@ export default function AdminProductsPage() {
                                     <Edit size={14} /> Edit
                                 </button>
                             </div>
+
+                            {product.announced_at ? (
+                                <button disabled className="mt-2 w-full text-xs py-2 bg-emerald-50 rounded text-emerald-700 font-medium flex items-center justify-center gap-1 cursor-default">
+                                    <CheckCircle size={14} /> Announced
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => handleAnnounce(product)}
+                                    disabled={announcingId === product.id}
+                                    className="mt-2 w-full text-xs py-2 bg-orange-50 hover:bg-orange-100 rounded text-orange-700 font-medium flex items-center justify-center gap-1 disabled:opacity-50"
+                                >
+                                    {announcingId === product.id ? <Loader2 className="animate-spin" size={14} /> : <Megaphone size={14} />} Announce to Students
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}

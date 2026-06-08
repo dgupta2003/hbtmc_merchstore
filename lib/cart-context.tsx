@@ -20,6 +20,7 @@ export interface Product {
     customizations?: CustomizationField[];
     is_featured?: boolean;
     category?: 'merchandise' | 'ticket' | 'other';
+    announced_at?: any;
 }
 
 export interface CartItem extends Product {

@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { Loader2, Trash2, ShoppingBag, ArrowRight, Pencil, Info } from 'lucide-react';
 import Script from 'next/script';
 import Link from 'next/link';
-import { sendOrderConfirmation } from '@/lib/email';
 
 declare global {
     interface Window {
@@ -92,33 +91,6 @@ export default function CartPage() {
                             razorpay_signature: response.razorpay_signature,
                             order_db_id,
                         });
-
-                        // Compose order summary string for email
-                        const orderSummaryStr = cart.map((item) => {
-                            let str = `${item.quantity}x ${item.name}`;
-                            if (item.category !== 'ticket' && item.selectedSize && item.selectedSize !== 'N/A') {
-                                str += ` (Size: ${item.selectedSize})`;
-                            }
-                            if (item.customizationTexts) {
-                                str += ` - [${Object.entries(item.customizationTexts).map(([k,v])=> `${k}: ${v}`).join(', ')}]`;
-                            } else if (item.customizationText) {
-                                str += ` - [Custom: ${item.customizationText}]`;
-                            }
-                            return str;
-                        }).join('\n');
-
-                        // Send email confirmation
-                        const emailTarget = user ? user.email : guestEmail;
-                        const nameTarget = user ? user.displayName || 'Student' : guestName;
-                        if (emailTarget) {
-                            sendOrderConfirmation(
-                                emailTarget,
-                                nameTarget,
-                                order_db_id,
-                                cartTotal,
-                                orderSummaryStr
-                            );
-                        }
 
                         clearCart();
                         if (user) {
