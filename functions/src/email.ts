@@ -1,10 +1,19 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || '');
+// Lazily construct the Resend client. The SDK throws if the API key is empty,
+// and Firebase loads this module during deploy-time code analysis (before the
+// runtime env is guaranteed), so constructing at module load would break every
+// deploy when RESEND_API_KEY is absent. Build it on first use instead.
+let _resend: Resend | null = null;
+function getResend(): Resend | null {
+    if (!process.env.RESEND_API_KEY) return null;
+    if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+    return _resend;
+}
 
 const RESEND_FROM = process.env.RESEND_FROM || '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
-const STORE_URL = process.env.STORE_URL || 'https://hbtmc-gymkhana-emporium.web.app';
+const STORE_URL = process.env.STORE_URL || 'https://hbtmcmerchstore.shop';
 
 const PICKUP_LOCATION = 'Male Common Room, 1st Floor, Main College Building';
 
@@ -135,7 +144,7 @@ export async function sendOrderConfirmation(order: any): Promise<boolean> {
             </p>`;
 
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend()!.emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -171,7 +180,7 @@ export async function sendPickupNotification(order: any): Promise<boolean> {
             </p>`;
 
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend()!.emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -207,7 +216,7 @@ export async function sendCompletionNotification(order: any): Promise<boolean> {
             </div>`;
 
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend()!.emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -267,7 +276,7 @@ export async function sendProductAnnouncement(product: any, recipients: string[]
                 subject,
                 html,
             }));
-            await resend.batch.send(payload);
+            await getResend()!.batch.send(payload);
         }
         console.log(`Product announcement sent to ${emails.length} recipient(s).`);
         return true;

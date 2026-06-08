@@ -2,10 +2,21 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendProductAnnouncement = exports.sendCompletionNotification = exports.sendPickupNotification = exports.sendOrderConfirmation = void 0;
 const resend_1 = require("resend");
-const resend = new resend_1.Resend(process.env.RESEND_API_KEY || '');
+// Lazily construct the Resend client. The SDK throws if the API key is empty,
+// and Firebase loads this module during deploy-time code analysis (before the
+// runtime env is guaranteed), so constructing at module load would break every
+// deploy when RESEND_API_KEY is absent. Build it on first use instead.
+let _resend = null;
+function getResend() {
+    if (!process.env.RESEND_API_KEY)
+        return null;
+    if (!_resend)
+        _resend = new resend_1.Resend(process.env.RESEND_API_KEY);
+    return _resend;
+}
 const RESEND_FROM = process.env.RESEND_FROM || '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
-const STORE_URL = process.env.STORE_URL || 'https://hbtmc-gymkhana-emporium.web.app';
+const STORE_URL = process.env.STORE_URL || 'https://hbtmcmerchstore.shop';
 const PICKUP_LOCATION = 'Male Common Room, 1st Floor, Main College Building';
 function configured() {
     if (!process.env.RESEND_API_KEY || !RESEND_FROM) {
@@ -117,7 +128,7 @@ async function sendOrderConfirmation(order) {
                 Collect your physical items from ${PICKUP_LOCATION}. If this is a digital pass/ticket, please present this email as confirmation.
             </p>`;
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend().emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -153,7 +164,7 @@ async function sendPickupNotification(order) {
                 Please collect it from <strong>${PICKUP_LOCATION}</strong>.
             </p>`;
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend().emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -189,7 +200,7 @@ async function sendCompletionNotification(order) {
                 Total: ₹${escapeHtml(order === null || order === void 0 ? void 0 : order.total_amount)}
             </div>`;
         const cc = ADMIN_EMAIL ? [ADMIN_EMAIL] : undefined;
-        await resend.emails.send({
+        await getResend().emails.send({
             from: RESEND_FROM,
             to: email,
             cc,
@@ -246,7 +257,7 @@ async function sendProductAnnouncement(product, recipients) {
                 subject,
                 html,
             }));
-            await resend.batch.send(payload);
+            await getResend().batch.send(payload);
         }
         console.log(`Product announcement sent to ${emails.length} recipient(s).`);
         return true;
