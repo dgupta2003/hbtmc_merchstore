@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@emailjs/browser": "^4.4.1",
     "@types/papaparse": "^5.5.2",
     "clsx": "^2.1.1",
     "encoding": "^0.1.13",

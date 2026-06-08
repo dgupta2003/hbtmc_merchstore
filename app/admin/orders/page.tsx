@@ -5,7 +5,6 @@ import { collection, query, orderBy, getDocs, updateDoc, doc } from 'firebase/fi
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '@/lib/auth-context';
 import { Loader2, Download, Package, Clock, CheckCircle, User } from 'lucide-react';
-import { sendPickupNotification, sendCompletionNotification } from '@/lib/email';
 
 export default function AdminOrdersPage() {
     const { user } = useAuth();
@@ -34,12 +33,6 @@ export default function AdminOrdersPage() {
     const updateStatus = async (order: any, newStatus: string) => {
         try {
             await updateDoc(doc(db, 'orders', order.id), { order_status: newStatus });
-            
-            if (newStatus === 'ready_for_pickup') {
-                await sendPickupNotification(order.user_email || order.guestDetail?.email, order.user_roll_number || order.guestDetail?.name, order.id);
-            } else if (newStatus === 'completed') {
-                await sendCompletionNotification(order.user_email || order.guestDetail?.email, order.user_roll_number || order.guestDetail?.name, order.id, order.total_amount);
-            }
             fetchOrders();
         } catch (error) {
             console.error("Update failed", error);
